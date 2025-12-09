@@ -396,6 +396,7 @@ md"## Interactive Comparison"
 
 # ╔═╡ b73b1d2a-d334-11f0-8674-2b4d2873db64
 md"""
+
 Initial Y Position (m): $(@bind y0_slider PlutoUI.Slider(-5.0:0.1:5.0, default=1.0, show_value=true))
 
 Initial Z Position (m): $(@bind z0_slider PlutoUI.Slider(-5.0:0.1:5.0, default=1.0, show_value=true))
