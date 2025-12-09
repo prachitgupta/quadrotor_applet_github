@@ -55,22 +55,27 @@ end
 
 # ╔═╡ b73b1cce-d334-11f0-b624-cbadaea34f19
 md"""
-## System dynamics:
+## System Dynamics
 
-$m\ddot{x} = -F\sin\theta$
+![Quadrotor Diagram](https://raw.githubusercontent.com/prachitgupta/quadrotor_applet/main/images/schematic.png)
 
-$m\ddot{z} = F\cos\theta - mg$
+The equations of motion are:
 
-$J\ddot{\theta} = M$
+$$m\ddot{x} = -F\sin\theta$$
+
+$$m\ddot{z} = F\cos\theta - mg$$
+
+$$J\ddot{\theta} = M$$
 
 where:
-- $(x,z)$ — position coordinates
-- $\theta$ — attitude angle
-- $F$ — total thrust force
-- $M$ — control torque
+- ``(x,z)`` — position coordinates
+- ``\theta`` — attitude angle
+- ``F`` — total thrust force
+- ``M`` — control torque
 
 **Key insight:** Underactuated system where horizontal motion is achieved indirectly through attitude changes.
 """
+
 
 
 # ╔═╡ 92b0f208-f481-4f3e-ab37-cebe3dd88bbc
@@ -190,19 +195,52 @@ end
 md"""
 ## Feedback Linearization Control
 
-Since the position and altitude do not directly influence each other, we break the system into two subsystems (Li 2023): an **altitude** subsystem controlled by thrust $F$, and a **position** subsystem controlled by torque $M$. The subsystem dynamics and corresponding control laws are:
+Since the position and altitude do not directly influence each other, we break the system into two subsystems (Li 2023): an **altitude** subsystem controlled by thrust ``F``, and a **position** subsystem controlled by torque ``M``. The subsystem dynamics and corresponding control laws are:
 
-$\begin{pmatrix} \dot{x}_2 \\ \dot{x}_5 \end{pmatrix} = \begin{pmatrix} x_5 \\ \frac{F\cos(x_3)}{m}-g \end{pmatrix}$
+```math
+\begin{pmatrix} \dot{x}_2 \\ \dot{x}_5 \end{pmatrix} = \begin{pmatrix} x_5 \\ \frac{F\cos(x_3)}{m}-g \end{pmatrix}
+```
 
-$\begin{pmatrix} \dot{x}_1 \\ \dot{x}_3 \\ \dot{x}_4 \\ \dot{x}_6 \end{pmatrix} = \begin{pmatrix} x_4 \\ x_6 \\ -\frac{F\sin(x_3)}{m} \\ \frac{M}{J} \end{pmatrix}$
+```math
+\begin{pmatrix} \dot{x}_1 \\ \dot{x}_3 \\ \dot{x}_4 \\ \dot{x}_6 \end{pmatrix} = \begin{pmatrix} x_4 \\ x_6 \\ -\frac{F\sin(x_3)}{m} \\ \frac{M}{J} \end{pmatrix}
+```
 
-Control laws:
+### Derivation of Control Laws
 
-$F=\frac{m(v_1 + g)}{\cos(x_3)}$
+**Altitude subsystem:** It is clear that after substituting the control ``F = \frac{m(v_1 + g)}{\cos(x_3)}``, the altitude subsystem becomes a second-order integrator with new input ``v_1``:
 
-$M=-\frac{mJ}{F\cos(x_3)}\left(v_2 - \frac{F\sin(x_3)x_6^2}{m}\right) \text{ for } F\neq0$
+```math
+\ddot{x}_2 = v_1
+```
 
-It is clear that after substituting in the control $F$, the first subsystem becomes a second-order integrator with a new input $v_1$.
+**Position subsystem:** For the horizontal position ``x_1``, the control torque ``M`` does not appear directly in ``\dot{x}_1`` or ``\ddot{x}_1``. We must differentiate repeatedly until ``M`` appears. Taking successive derivatives:
+
+```math
+\begin{align}
+\dot{x}_1 &= x_4 \\
+\ddot{x}_1 &= \dot{x}_4 = -\frac{F\sin(x_3)}{m} \\
+\dddot{x}_1 &= -\frac{F\cos(x_3)\dot{x}_3}{m} = -\frac{F\cos(x_3)x_6}{m} \\
+x_1^{(4)} &= -\frac{F\cos(x_3)\dot{x}_6}{m} + \frac{F\sin(x_3)x_6^2}{m} = -\frac{F\cos(x_3)}{m} \cdot \frac{M}{J} + \frac{F\sin(x_3)x_6^2}{m}
+\end{align}
+```
+
+At the fourth derivative, ``M`` appears explicitly. Setting ``x_1^{(4)} = v_2`` (the new input) and solving for ``M``:
+
+```math
+M = -\frac{mJ}{F\cos(x_3)}\left(v_2 - \frac{F\sin(x_3)x_6^2}{m}\right) \quad \text{for } F\neq0
+```
+
+This transforms the position subsystem into a fourth-order integrator with input ``v_2``.
+
+### Final Control Laws
+
+```math
+F = \frac{m(v_1 + g)}{\cos(x_3)}
+```
+
+```math
+M = -\frac{mJ}{F\cos(x_3)}\left(v_2 - \frac{F\sin(x_3)x_6^2}{m}\right) \quad \text{for } F\neq0
+```
 """
 
 # ╔═╡ 442e2835-e79e-4aaa-9952-b525dad81e7b
@@ -485,53 +523,53 @@ begin
     end
     gif_fl = gif(anim_fl, "quadrotor_animation_FL.gif", fps=15)
     
-    # Animation 3: Both controllers together (COMPARISON)
-    # Use the longer time vector for synchronization
-    max_time = max(sol_lqr.t[end], sol_fl.t[end])
-    t_common = range(0, max_time, length=150)
+    # # Animation 3: Both controllers together (COMPARISON)
+    # # Use the longer time vector for synchronization
+    # max_time = max(sol_lqr.t[end], sol_fl.t[end])
+    # t_common = range(0, max_time, length=150)
     
-    anim_comparison = @animate for t in t_common
-        # Find corresponding indices for both solutions
-        idx_lqr = findfirst(x -> x >= t, sol_lqr.t)
-        idx_fl = findfirst(x -> x >= t, sol_fl.t)
+    # anim_comparison = @animate for t in t_common
+    #     # Find corresponding indices for both solutions
+    #     idx_lqr = findfirst(x -> x >= t, sol_lqr.t)
+    #     idx_fl = findfirst(x -> x >= t, sol_fl.t)
         
-        # Handle case where one solution ends before the other
-        if isnothing(idx_lqr)
-            idx_lqr = length(sol_lqr.t)
-        end
-        if isnothing(idx_fl)
-            idx_fl = length(sol_fl.t)
-        end
+    #     # Handle case where one solution ends before the other
+    #     if isnothing(idx_lqr)
+    #         idx_lqr = length(sol_lqr.t)
+    #     end
+    #     if isnothing(idx_fl)
+    #         idx_fl = length(sol_fl.t)
+    #     end
         
-        # Get current states
-        state_lqr = sol_lqr[:, idx_lqr]
-        state_fl = sol_fl[:, idx_fl]
+    #     # Get current states
+    #     state_lqr = sol_lqr[:, idx_lqr]
+    #     state_fl = sol_fl[:, idx_fl]
         
-        y_lqr, z_lqr, theta_lqr = state_lqr[1], state_lqr[2], state_lqr[3]
-        y_fl, z_fl, theta_fl = state_fl[1], state_fl[2], state_fl[3]
+    #     y_lqr, z_lqr, theta_lqr = state_lqr[1], state_lqr[2], state_lqr[3]
+    #     y_fl, z_fl, theta_fl = state_fl[1], state_fl[2], state_fl[3]
         
-        p_frame = plot(xlabel="Y (m)", ylabel="Z (m)", 
-                       xlims=(plot_y_min, plot_y_max), ylims=(plot_z_min, plot_z_max),
-                       aspect_ratio=:equal, legend=:topright, 
-                       title="Comparison: LQR vs FL - Time: $(round(t, digits=2))s")
+    #     p_frame = plot(xlabel="Y (m)", ylabel="Z (m)", 
+    #                    xlims=(plot_y_min, plot_y_max), ylims=(plot_z_min, plot_z_max),
+    #                    aspect_ratio=:equal, legend=:topright, 
+    #                    title="Comparison: LQR vs FL - Time: $(round(t, digits=2))s")
         
-        # Plot LQR trajectory and quadrotor
-        plot!(p_frame, sol_lqr[1,1:idx_lqr], sol_lqr[2,1:idx_lqr], 
-              label="LQR Path", linecolor=:blue, linewidth=2, alpha=0.6)
-        draw_quadrotor!(p_frame, y_lqr, z_lqr, theta_lqr, :blue)
+    #     # Plot LQR trajectory and quadrotor
+    #     plot!(p_frame, sol_lqr[1,1:idx_lqr], sol_lqr[2,1:idx_lqr], 
+    #           label="LQR Path", linecolor=:blue, linewidth=2, alpha=0.6)
+    #     draw_quadrotor!(p_frame, y_lqr, z_lqr, theta_lqr, :blue)
         
-        # Plot FL trajectory and quadrotor
-        plot!(p_frame, sol_fl[1,1:idx_fl], sol_fl[2,1:idx_fl], 
-              label="FL Path", linecolor=:red, linewidth=2, alpha=0.6)
-        draw_quadrotor!(p_frame, y_fl, z_fl, theta_fl, :red)
+    #     # Plot FL trajectory and quadrotor
+    #     plot!(p_frame, sol_fl[1,1:idx_fl], sol_fl[2,1:idx_fl], 
+    #           label="FL Path", linecolor=:red, linewidth=2, alpha=0.6)
+    #     draw_quadrotor!(p_frame, y_fl, z_fl, theta_fl, :red)
         
-        # Plot start and goal
-        scatter!(p_frame, [y0_slider], [z0_slider], label="Start", 
-                markersize=6, color=:green, shape=:circle)
-        scatter!(p_frame, [y_goal_slider], [z_goal_slider], label="Goal", 
-                markersize=8, color=:gold, shape=:star)
-    end
-    gif_comparison = gif(anim_comparison, "quadrotor_comparison.gif", fps=15)
+    #     # Plot start and goal
+    #     scatter!(p_frame, [y0_slider], [z0_slider], label="Start", 
+    #             markersize=6, color=:green, shape=:circle)
+    #     scatter!(p_frame, [y_goal_slider], [z_goal_slider], label="Goal", 
+    #             markersize=8, color=:gold, shape=:star)
+    # end
+    # gif_comparison = gif(anim_comparison, "quadrotor_comparison.gif", fps=15)
     
     # Display all three animations in a layout
     md"""
@@ -543,18 +581,88 @@ begin
     ### Feedback Linearization Controller
     $(gif_fl)
     
-    ### Side-by-Side Comparison
-    $(gif_comparison)
+   
     """
 end
 
 # ╔═╡ 6c6c6c6c-6c6c-6c6c-6c6c-6c6c6c6c6c6c
+begin
+	
+		 # Animation 3: Both controllers together (COMPARISON)
+		    # Use the longer time vector for synchronization
+		    max_time = max(sol_lqr.t[end], sol_fl.t[end])
+		    t_common = range(0, max_time, length=150)
+		    
+		    anim_comparison = @animate for t in t_common
+		        # Find corresponding indices for both solutions
+		        idx_lqr = findfirst(x -> x >= t, sol_lqr.t)
+		        idx_fl = findfirst(x -> x >= t, sol_fl.t)
+		        
+		        # Handle case where one solution ends before the other
+		        if isnothing(idx_lqr)
+		            idx_lqr = length(sol_lqr.t)
+		        end
+		        if isnothing(idx_fl)
+		            idx_fl = length(sol_fl.t)
+		        end
+		        
+		        # Get current states
+		        state_lqr = sol_lqr[:, idx_lqr]
+		        state_fl = sol_fl[:, idx_fl]
+		        
+		        y_lqr, z_lqr, theta_lqr = state_lqr[1], state_lqr[2], state_lqr[3]
+		        y_fl, z_fl, theta_fl = state_fl[1], state_fl[2], state_fl[3]
+		        
+		        p_frame = plot(xlabel="Y (m)", ylabel="Z (m)", 
+		                       xlims=(plot_y_min, plot_y_max), ylims=(plot_z_min, plot_z_max),
+		                       aspect_ratio=:equal, legend=:topright, 
+							    title="Comparison: LQR vs FL - Time: $(round(t, digits=2))s")
+		        
+		        # Plot LQR trajectory and quadrotor
+		        plot!(p_frame, sol_lqr[1,1:idx_lqr], sol_lqr[2,1:idx_lqr], 
+		              label="LQR Path", linecolor=:blue, linewidth=2, alpha=0.6)
+		        draw_quadrotor!(p_frame, y_lqr, z_lqr, theta_lqr, :blue)
+		        
+		        # Plot FL trajectory and quadrotor
+		        plot!(p_frame, sol_fl[1,1:idx_fl], sol_fl[2,1:idx_fl], 
+		              label="FL Path", linecolor=:red, linewidth=2, alpha=0.6)
+		        draw_quadrotor!(p_frame, y_fl, z_fl, theta_fl, :red)
+		        
+		        # Plot start and goal
+		        scatter!(p_frame, [y0_slider], [z0_slider], label="Start", 
+		                markersize=6, color=:green, shape=:circle)
+		        scatter!(p_frame, [y_goal_slider], [z_goal_slider], label="Goal", 
+		                markersize=8, color=:gold, shape=:star)
+		    end
+		    gif_comparison = gif(anim_comparison, "quadrotor_comparison.gif", fps=15)
+		    
+		    # Display all three animations in a layout
+		md"""
+    ## Controller Comparison
+    
+    
+    
+    $(gif_comparison)
+    
+   
+    """
+	
+end
+
+# ╔═╡ 31726dfd-b1ab-4dbe-80c6-61e4af78ea13
 md"""
-### 4. Comparative Analysis
 
-*Compare LQR and feedback linearization approaches in terms of region of attraction, tracking performance, and robustness.*
 
-This section will visually demonstrate the differences in performance between the two controllers, especially when operating far from equilibrium or attempting to track dynamic trajectories.
+## Key Observations
+
+1. **LQR demonstrates superior robustness** across varying goal distances, maintaining stable flight even for large ``z`` displacements. This is because LQR operates by minimizing a cost function that balances state error and control effort, naturally avoiding extreme control actions.
+
+2. **Feedback linearization becomes increasingly aggressive** for distant goals, requiring large thrust ``F`` and torque ``M`` to cancel nonlinearities. This aggressive behavior can lead to large angle excursions and eventual controller failure when the quadrotor approaches vertical orientations (``\theta \approx \pm 90°``).
+
+3. **Singularity issues plague feedback linearization** at large angles where ``\cos(\theta) \approx 0``, causing unbounded control commands. LQR avoids this problem by design, penalizing large ``\theta`` deviations through its cost function and keeping the system within the small-angle regime.
+
+4. **Model dependency is critical**: feedback linearization requires exact cancellation of nonlinearities and fails catastrophically with model uncertainties, while LQR tolerates modeling errors and degrades gracefully, making it more practical for real-world applications.
+.
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -3340,7 +3448,7 @@ version = "1.13.0+0"
 # ╠═b73b1cf6-d334-11f0-a649-57d70532cf4f
 # ╠═dba416d1-1118-413b-a355-215b31d29247
 # ╠═b73b1d00-d334-11f0-99ae-794d3ac300fb
-# ╟─b73b1d00-d334-11f0-9895-fdc71285f626
+# ╠═b73b1d00-d334-11f0-9895-fdc71285f626
 # ╠═b73b1d0a-d334-11f0-8595-a32dfd67de55
 # ╠═442e2835-e79e-4aaa-9952-b525dad81e7b
 # ╠═b73b1d0a-d334-11f0-91e4-158bb91b2078
@@ -3352,5 +3460,6 @@ version = "1.13.0+0"
 # ╠═dfe9afb8-096c-46c7-a527-aa43c17c98ad
 # ╠═1f9d4fe3-f35e-45b5-9c90-fd6b17c3e585
 # ╠═6c6c6c6c-6c6c-6c6c-6c6c-6c6c6c6c6c6c
+# ╠═31726dfd-b1ab-4dbe-80c6-61e4af78ea13
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
